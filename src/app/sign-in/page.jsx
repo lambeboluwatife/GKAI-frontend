@@ -50,7 +50,6 @@ const LoginPage = () => {
           error.response?.data.message || "An error occurred"
         }`,
       });
-      console.log(error);
     } finally {
       setLoading(false);
     }
