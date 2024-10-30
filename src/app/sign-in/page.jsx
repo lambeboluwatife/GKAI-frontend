@@ -2,9 +2,9 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import Alert from "../components/Alert";
+import { saveToken } from "../utils/tokenUtils";
 
 const LoginPage = () => {
   const router = useRouter();
@@ -28,11 +28,7 @@ const LoginPage = () => {
         { email, password }
       );
 
-      const token = response.data.token;
-      localStorage.setItem("token", token);
-
-      const decodedToken = jwtDecode(token);
-      localStorage.setItem("userId", decodedToken?.user._id);
+      const token = saveToken(response.data.token);
 
       document.cookie = `token=${token}; path=/`;
 
@@ -44,10 +40,13 @@ const LoginPage = () => {
         router.push("/");
       }, 2000);
     } catch (error) {
+      console.log(error);
       setAlert({
         type: "danger",
         message: `Signing in failed: ${
-          error.response?.data.message || "An error occurred"
+          error.response?.message ||
+          error.response?.data.message ||
+          "An error occurred"
         }`,
       });
     } finally {
