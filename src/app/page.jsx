@@ -1,30 +1,66 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { startGame } from "./utils/game";
+import { useEffect, useState } from "react";
+import { startGame, getOngoingGames } from "./utils/game";
+import Alert from "./components/Alert";
+import { getToken } from "./utils/tokenUtils";
+import moment from "moment";
 
 const Home = () => {
   const router = useRouter();
-
   const [gameId, setGameId] = useState(null);
   const [alert, setAlert] = useState(null);
   const [loading, setLoading] = useState(false);
-
+  const [token, setToken] = useState(null);
   const [difficulty, setDifficulty] = useState("easy");
   const [gameType, setGameType] = useState("single");
+  const [ongoingGames, setOngoingGames] = useState([]);
 
-  const handleChange = (e) => {
-    setDifficulty(e.target.value);
-    setGameType(e.target.value);
-  };
+  useEffect(() => {
+    const tokenCheck = getToken();
+    setToken(tokenCheck);
 
-  const data = { difficulty, gameType };
+    const fetchOngoingGames = async () => {
+      try {
+        const games = await getOngoingGames();
+        setOngoingGames(games);
+      } catch (error) {
+        console.error("Error fetching ongoing games:", error);
+      }
+    };
+
+    if (tokenCheck) {
+      fetchOngoingGames();
+    }
+  }, []);
 
   const handleStartGame = async () => {
     setLoading(true);
+    const data = { difficulty, gameType };
     const newGame = await startGame({ data });
+
     setLoading(false);
-    setGameId(newGame.gameId);
+
+    if (newGame.error) {
+      setAlert({ type: "danger", message: newGame.error });
+    } else {
+      setAlert({ type: "success", message: "Game started successfully!" });
+      setGameId(newGame.gameId);
+
+      setTimeout(() => {
+        router.push(`/game/${newGame.gameId}`);
+      }, 2000);
+    }
+  };
+
+  const handleResumeGame = async (gameId) => {
+    setLoading(true);
+    await router.push(`/game/${gameId}`);
+    setLoading(false);
+  };
+
+  const formatDate = (date) => {
+    return moment(date).format("Do MMM. YYYY, h:mm A");
   };
 
   return (
@@ -39,9 +75,62 @@ const Home = () => {
       <center>
         <div className="btn btn-dark">If So, Select Your Level</div>
       </center>
-      <div className="container d-flex align-items-center justify-content-center mt-5">
+      {alert && (
+        <Alert
+          type={alert.type}
+          message={alert.message}
+          autoDismiss
+          duration={3000}
+        />
+      )}
+
+      {token && ongoingGames.length > 0 && (
+        <div className="mt-4">
+          <h3>Resume Your Games</h3>
+          <div className="row">
+            {ongoingGames.map((game) => (
+              <div className="col-md-4 mb-4" key={game._id}>
+                <div className="card h-100 shadow-sm">
+                  <div className="card-body">
+                    <p className="card-text">
+                      <strong>Difficulty:</strong> {game.difficulty}
+                      <br />
+                      <strong>Game Type:</strong> {game.gameType}
+                      <br />
+                      <strong>Status:</strong> {game.status}
+                      <br />
+                      <strong>Moves:</strong> {`${game.moves.length} made`}
+                      <br />
+                      <strong>Last Updated:</strong>{" "}
+                      {formatDate(game.lastUpdated)}
+                    </p>
+                    <button
+                      onClick={() => handleResumeGame(game._id)}
+                      className="btn btn-primary w-100"
+                    >
+                      {loading ? (
+                        <h6>fetching game data</h6>
+                      ) : (
+                        <h6>Resume Game</h6>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`container d-flex align-items-center justify-content-center mt-5 ${
+          token && ongoingGames.length > 0 ? "row" : ""
+        }`}
+      >
         <div
-          className="card p-4 shadow-sm"
+          className={`card p-4 shadow-sm ${
+            token && ongoingGames.length > 0 ? "col-md-6" : ""
+          }`}
           style={{ width: "100%", maxWidth: "400px" }}
         >
           <h2 className="text-center mb-4">Select Difficulty</h2>
@@ -54,10 +143,10 @@ const Home = () => {
               id="gameType"
               className="form-select"
               value={gameType}
-              onChange={handleChange}
+              onChange={(e) => setGameType(e.target.value)}
             >
-              <option value="easy">Single</option>
-              <option value="normal">Multiplayer</option>
+              <option value="single">Single</option>
+              <option value="multiplayer">Multiplayer</option>
             </select>
           </div>
 
@@ -69,7 +158,7 @@ const Home = () => {
               id="difficulty"
               className="form-select"
               value={difficulty}
-              onChange={handleChange}
+              onChange={(e) => setDifficulty(e.target.value)}
             >
               <option value="easy">Easy</option>
               <option value="normal">Normal</option>
