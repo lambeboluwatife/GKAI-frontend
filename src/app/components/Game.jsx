@@ -29,6 +29,12 @@ const Game = ({ id }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const isInputComplete = inputValues.every((value) => value !== "");
+
+    if (!isInputComplete) {
+      return console.log("Enter all numbers before submitting");
+    }
+
     setLoading(true);
     const newGameMove = await gameMove({ guess: inputValues, id });
 
@@ -37,8 +43,13 @@ const Game = ({ id }) => {
     if (newGameMove.error) {
       setAlert({ type: "danger", message: newGameMove.error });
     } else {
-      setAlert({ type: "success", message: "Game started successfully!" });
+      setAlert({
+        type: "success",
+        message: "Game move submitted successfully!",
+      });
     }
+
+    setInputValues(["", "", "", ""]);
   };
 
   return (
